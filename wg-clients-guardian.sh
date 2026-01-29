@@ -44,18 +44,37 @@ readonly GOTIFY_TITLE=$(awk -F'=' '/^gotify_title=/ { print $2}' $1)
 readonly TELEGRAM_CHAT_ID=$(awk -F'=' '/^chat=/ { print $2}' $1)
 readonly TELEGRAM_TOKEN=$(awk -F'=' '/^token=/ { print $2}' $1)
 
+readonly WGDASHBOARD_DB_PATH=$(awk -F'=' '/^wgdashboard_db_path=/ { print $2}' $1)
+
 while IFS= read -r LINE; do
 	public_key=$(awk '{ print $1 }' <<< "$LINE")
 	remote_ip=$(awk '{ print $3 }' <<< "$LINE" | awk -F':' '{print $1}')
 	last_seen=$(awk '{ print $5 }' <<< "$LINE")
 	# By default, the client name is just the sanitized public key containing only letters and numbers.
 	client_name=$(echo "$public_key" | sed 's/[^a-zA-Z0-9]//g')
+	client_name_by_public_key=""
 	# check if the wireguard directory keys exists (created by pivpn)
 	if [ -d "/etc/wireguard/keys/" ]; then
 		# if the public_key is stored in the /etc/wireguard/keys/username_pub file, save the username in the client_name var
 		client_name_by_public_key=$(grep -R "$public_key" /etc/wireguard/keys/ | awk -F"/etc/wireguard/keys/|_pub:" '{print $2}' | sed -e 's./..g')
 		if [ "" != "$client_name_by_public_key" ]; then
 			client_name=$client_name_by_public_key
+		fi
+	else
+		# if client_name_by_public_key is empty, try to look up in wgdashboard db
+		if [ -z "$client_name_by_public_key" ] && [ -n "$WGDASHBOARD_DB_PATH" ]; then
+			# check if sqlite3 command is available
+			if command -v sqlite3 &> /dev/null; then
+				# check if wgdashboard database file exists
+				if [ -f "$WGDASHBOARD_DB_PATH" ]; then
+					# execute sqlite3 query to get client name
+					client_name_by_public_key=$(sqlite3 "$WGDASHBOARD_DB_PATH" "SELECT name FROM wg0 WHERE id = '$public_key'" 2>/dev/null)
+					# assign to client_name if query was successful and result is not empty
+					if [ $? -eq 0 ] && [ -n "$client_name_by_public_key" ]; then
+						client_name=$client_name_by_public_key
+					fi
+				fi
+			fi
 		fi
 	fi
 	client_file="$CLIENTS_DIRECTORY/$client_name.txt"
