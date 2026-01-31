@@ -44,7 +44,14 @@ readonly GOTIFY_TITLE=$(awk -F'=' '/^gotify_title=/ { print $2}' $1)
 readonly TELEGRAM_CHAT_ID=$(awk -F'=' '/^chat=/ { print $2}' $1)
 readonly TELEGRAM_TOKEN=$(awk -F'=' '/^token=/ { print $2}' $1)
 
-readonly WGDASHBOARD_DB_PATH=$(awk -F'=' '/^wgdashboard_db_path=/ { print $2}' $1)
+readonly WGDASHBOARD_API_URL=$(awk -F'=' '/^wgdashboard_api_url=/ { print $2}' $1)
+readonly WGDASHBOARD_API_KEY=$(awk -F'=' '/^wgdashboard_api_key=/ { print $2}' $1)
+
+# Try wgdashboard API if configured
+if [ -n "$WGDASHBOARD_API_URL" ] && [ -n "$WGDASHBOARD_API_KEY" ]; then
+	# First try header x-api-key
+	api_response=$(curl -s -H "wg-dashboard-apikey: $WGDASHBOARD_API_KEY" "$WGDASHBOARD_API_URL/api/getWireguardConfigurationInfo?configurationName=wg0" 2>/dev/null)
+fi
 
 while IFS= read -r LINE; do
 	public_key=$(awk '{ print $1 }' <<< "$LINE")
@@ -61,18 +68,15 @@ while IFS= read -r LINE; do
 			client_name=$client_name_by_public_key
 		fi
 	else
-		# if client_name_by_public_key is empty, try to look up in wgdashboard db
-		if [ -z "$client_name_by_public_key" ] && [ -n "$WGDASHBOARD_DB_PATH" ]; then
-			# check if sqlite3 command is available
-			if command -v sqlite3 &> /dev/null; then
-				# check if wgdashboard database file exists
-				if [ -f "$WGDASHBOARD_DB_PATH" ]; then
-					# execute sqlite3 query to get client name
-					client_name_by_public_key=$(sqlite3 "$WGDASHBOARD_DB_PATH" "SELECT name FROM wg0 WHERE id = '$public_key'" 2>/dev/null)
-					# assign to client_name if query was successful and result is not empty
-					if [ $? -eq 0 ] && [ -n "$client_name_by_public_key" ]; then
-						client_name=$client_name_by_public_key
-					fi
+		# if client_name_by_public_key is empty, try to look up in wgdashboard via API (preferred)
+		if [ -z "$client_name_by_public_key" ]; then
+			if [ -n "$api_response" ]; then
+				# If jq is available use it to find the peer name by public key
+				if command -v jq &> /dev/null; then
+					client_name_by_public_key=$(echo "$api_response" | jq -r --arg k "$public_key" '.data.configurationPeers[] | select(.id==$k) | .name' 2>/dev/null)
+				fi
+				if [ -n "$client_name_by_public_key" ]; then
+					client_name=$client_name_by_public_key
 				fi
 			fi
 		fi

@@ -8,11 +8,12 @@ notification_channel=both
 ; After X minutes the clients will be considered disconnected
 ; Choose a timeout greater then 5 minutes to limit many false positives
 timeout=5
-; Path to the wgdashboard database to get client name 
-; Wgdashboard does not necesseraily write the configuration files to disk with the client names
-; If empty the feature will be disabled
-; Possible path example: /etc/wgdashboard/src/db/wgdashboard.db
-wgdashboard_db_path=
+; Wgdashboard API base URL (optional). If set, the script will call the API
+; Example: https://your-wgdashboard-host
+wgdashboard_api_url=
+; API key for wgdashboard (optional). Required when `wgdashboard_api_url` is set.
+; Full documentation for API https://docs.wgdashboard.dev/api/
+wgdashboard_api_key=
 
 [telegram]
 ; Register your telegram bot https://core.telegram.org/bots
