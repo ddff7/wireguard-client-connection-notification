@@ -14,6 +14,12 @@ wgdashboard_api_url=
 ; API key for wgdashboard (optional). Required when `wgdashboard_api_url` is set.
 ; Full documentation for API https://docs.wgdashboard.dev/api/
 wgdashboard_api_key=
+; API cache time-to-live in seconds (optional). How long to cache the API response. Default: 86400 (24 hours)
+wgdashboard_api_ttl=86400
+; API retry count (optional). Number of times to retry the API call if it fails. Default: 3
+wgdashboard_api_retry_count=3
+; API retry sleep time in seconds (optional). How long to wait between retry attempts. Default: 1
+wgdashboard_api_retry_sleep=5
 
 [telegram]
 ; Register your telegram bot https://core.telegram.org/bots
